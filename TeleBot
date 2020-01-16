@@ -42,12 +42,17 @@ def weather_1(message: Message):
 
 
 @bot.message_handler(commands=['reg'])
-def command_handler(message: Message):
+def send_code_1(message: Message):
     bot.send_message(message.chat.id, 'Введите, пожалуйста, свою электронну почту dvfu')
     if 'dvfu' in message.text:
         send_code(message.text)
-        bot.send_message(message.chat.id, 'На вашу почту было выслано письмо с кодом для активации')
-        return
+        send_code_2(message)
+
+
+@bot.message_handler(content_types=['text'])
+def send_code_2(message):
+    bot.send_message(message.chat.id, 'На вашу электронную почту было выслано письмо с кодом подтверждения')
+
 
 
 def send_code(recipient):   # recipient - получатель
