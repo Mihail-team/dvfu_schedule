@@ -4,10 +4,11 @@ import telebot
 import pyowm
 from telebot.types import Message
 from random import randint
+import smtplib
 
 token = "990483237:AAHV_NWo_rl3dhuM0HgXpzLDQQZ-7p_dZm8"
 bot = telebot.TeleBot(token)
-main_url = f'https://api.telegram.org/bot{token}'
+'''main_url = f'https://api.telegram.org/bot{token}'
 
 answer = {                                  #
     'chat_id':287656148,                    # Данные, которы мы хотим отправить, chat_id - id нашего пользователя, берем из test_json
@@ -19,6 +20,7 @@ test1 = requests.get(f'{main_url}/getUpdates')  #получаение обнов
 #test2 = requests.get(f'{main_url}/sendMessage', data=answer)    # отправка данных
 #print(test2.json())
 
+'''
 
 @bot.message_handler(commands=['start','help'])
 def command_handler(message: Message):
@@ -44,34 +46,60 @@ def weather_1(message: Message):
 @bot.message_handler(commands=['reg'])
 def send_code_1(message: Message):
     bot.send_message(message.chat.id, 'Введите, пожалуйста, свою электронну почту dvfu')
-    if 'dvfu' in message.text:
-        send_code(message.text)
-        send_code_2(message)
+
+@bot.message_handler(func = lambda message: '@gmail.com' in message.text)
+def got_email(message):
+    SendMail('dvfu.schedule@gmail.com', 'Azsuna_power99', message.text.strip(), 'Fuck u')
+    bot.send_message(message.chat.id, 'Code was send, check your email')
+
+@bot.message_handler(func = lambda message: message.text.isnumeric() and 1000 <= int(message.text) <= 9999)
+def got_code(message):
+    bot.send_message(message.chat.id, 'Got code')
 
 
-@bot.message_handler(content_types=['text'])
-def send_code_2(message):
-    bot.send_message(message.chat.id, 'На вашу электронную почту было выслано письмо с кодом подтверждения')
 
-
-
-def send_code(recipient):   # recipient - получатель
+'''def send_code(recipient):   # recipient - получатель
     smtp_object = smtplibaio.SMTP('smtp.gmail.com', 587)    # 587 - номер порта
     smtp_object.starttls()  # tls шифрование
     smtp_object._auth_login('dvfu.schedule@gmail.com', 'Azsuna_power99')
     message = randint(1000, 9999)
     message = message.as_string()
-    '''Присвоение почте получателя сгенерированный код'''
     smtp_object.send_mail('dvfu.schedule@gmail.com', recipient, message)
     smtp_object.quit()
+'''
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+'''
+host_mail - адрес на основе которого создастся SMTP сервер,
+            также с этого же адреса и будет отправлено сообщение
+host_password - пароль к host аккаунту
+receiver - адрес получателя
+content - содержимое сообщения
+'''
+def SendMail(host_mail, host_password, receiver, content):
+    message = MIMEMultipart()
+    message['From'] = host_mail
+    message['To'] = receiver
+    #Тема сообщения:
+    message['Subject'] = 'Authentication Code'
+    message.attach(MIMEText(content, 'plain'))
+    message = message.as_string()
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(host_mail, host_password)
+    server.sendmail(host_mail, receiver, message)
+    server.quit()
 
 
-@bot.message_handler(content_types=['text'])      #  реагирует только на текст
-def echo_digits(message: Message):                #
-    if "Привет" or "Hello" in message.text:      # если в тексте найдено слово, выводит ответ
-        bot.reply_to(message, 'Hello')            #
-        return                                    #
+#@bot.message_handler(content_types=['text'])      #  реагирует только на текст
+#def echo_digits(message: Message):                #
+#    if "Привет" or "Hello" in message.text:      # если в тексте найдено слово, выводит ответ
+#        bot.reply_to(message, 'Hello')            #
+#        return                                    #
     #bot.reply_to(message, str(random.random()))# рандомное число от 0 до 1
 
-
-bot.polling(timeout=4)  # задержка 4 сек.
+print('Bot has started')
+bot.polling()  # задержка 4 сек.
