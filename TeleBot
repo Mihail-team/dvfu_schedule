@@ -1,3 +1,4 @@
+import os   # from psycopg2
 import requests
 import smtplibaio
 import telebot
@@ -5,6 +6,9 @@ import pyowm
 from telebot.types import Message
 from random import randint
 import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import psycopg2
 
 token = "990483237:AAHV_NWo_rl3dhuM0HgXpzLDQQZ-7p_dZm8"
 bot = telebot.TeleBot(token)
@@ -21,6 +25,13 @@ test1 = requests.get(f'{main_url}/getUpdates')  #получаение обнов
 #print(test2.json())
 
 '''
+
+
+conn = psycopg2.connect(dbname=os.getnv('Dvfu_schedule_bot'), user=os.getnv('Dvfu_schedule_bot'),
+                               password=os.getnv('NQ_eAsuQfS3vEKyk4yH6QxP5_7UjlIGG'),
+                               host=os.getnv('Postgres: // usqtsycy: NQ_eAsuQfS3vEKyk4yH6QxP5_7UjlIGG@rajje.db.elephantsql.com: 5432 / usqtsycy'))
+cur = conn.cursor()
+
 
 @bot.message_handler(commands=['start','help'])
 def command_handler(message: Message):
@@ -47,30 +58,18 @@ def weather_1(message: Message):
 def send_code_1(message: Message):
     bot.send_message(message.chat.id, 'Введите, пожалуйста, свою электронну почту dvfu')
 
-@bot.message_handler(func = lambda message: '@gmail.com' in message.text)
-def got_email(message):
-    SendMail('dvfu.schedule@gmail.com', 'Azsuna_power99', message.text.strip(), 'Fuck u')
-    bot.send_message(message.chat.id, 'Code was send, check your email')
 
-@bot.message_handler(func = lambda message: message.text.isnumeric() and 1000 <= int(message.text) <= 9999)
+@bot.message_handler(func=lambda message: '@gmail.com' in message.text)
+def got_email(message):
+    record_creation(message.text.strip())
+    SendMail('dvfu.schedule@gmail.com', 'Azsuna_power99', message.text.strip())
+    bot.send_message(message.chat.id, 'На вашу почту был выслан код подтверждения. Введите его:')
+
+
+@bot.message_handler(func=lambda message: message.text.isnumeric() and 1000 <= int(message.text) <= 9999)
 def got_code(message):
     bot.send_message(message.chat.id, 'Got code')
 
-
-
-'''def send_code(recipient):   # recipient - получатель
-    smtp_object = smtplibaio.SMTP('smtp.gmail.com', 587)    # 587 - номер порта
-    smtp_object.starttls()  # tls шифрование
-    smtp_object._auth_login('dvfu.schedule@gmail.com', 'Azsuna_power99')
-    message = randint(1000, 9999)
-    message = message.as_string()
-    smtp_object.send_mail('dvfu.schedule@gmail.com', recipient, message)
-    smtp_object.quit()
-'''
-
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 '''
 host_mail - адрес на основе которого создастся SMTP сервер,
@@ -79,13 +78,11 @@ host_password - пароль к host аккаунту
 receiver - адрес получателя
 content - содержимое сообщения
 '''
-def SendMail(host_mail, host_password, receiver, content):
-    message = MIMEMultipart()
-    message['From'] = host_mail
-    message['To'] = receiver
-    #Тема сообщения:
-    message['Subject'] = 'Authentication Code'
-    message.attach(MIMEText(content, 'plain'))
+
+
+def SendMail(host_mail, host_password, receiver):
+    message = randint(1000,9999)
+    code_assignment(receiver, message)
     message = message.as_string()
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
@@ -94,12 +91,25 @@ def SendMail(host_mail, host_password, receiver, content):
     server.quit()
 
 
-#@bot.message_handler(content_types=['text'])      #  реагирует только на текст
-#def echo_digits(message: Message):                #
-#    if "Привет" or "Hello" in message.text:      # если в тексте найдено слово, выводит ответ
-#        bot.reply_to(message, 'Hello')            #
-#        return                                    #
-    #bot.reply_to(message, str(random.random()))# рандомное число от 0 до 1
+def record_creation(mail):    # создание нового пользователя в БД
+    cur.execute('''INSERT INTO users (mail, status) VALUES (mail = %s, 0)''', (mail,))
+    conn.commit()
+
+
+def code_assignment(mail, code):    # присвоение кода безопасности к почте пользователя
+    cur.execute('''SELECT * FROM users WHERE  users.mail = %s
+    INSERT INTO users (confirmation_code) VALUES (code = %s)''', (mail, code,))
+    cur.fetchall()
+
+'''
+@bot.message_handler(content_types=['text'])      #  реагирует только на текст
+def echo_digits(message: Message):                #
+    if "Привет" or "Hello" in message.text:      # если в тексте найдено слово, выводит ответ
+        bot.reply_to(message, 'Hello')            #
+        return                                    #
+    bot.reply_to(message, str(random.random()))# рандомное число от 0 до 1
+'''
+
 
 print('Bot has started')
 bot.polling()  # задержка 4 сек.
