@@ -10,6 +10,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import psycopg2
 
+stroka=''
+
 token = "990483237:AAHV_NWo_rl3dhuM0HgXpzLDQQZ-7p_dZm8"
 bot = telebot.TeleBot(token)
 '''main_url = f'https://api.telegram.org/bot{token}'
@@ -27,15 +29,77 @@ test1 = requests.get(f'{main_url}/getUpdates')  #получаение обнов
 '''
 
 
-conn = psycopg2.connect(dbname=os.getnv('Dvfu_schedule_bot'), user=os.getnv('Dvfu_schedule_bot'),
-                               password=os.getnv('NQ_eAsuQfS3vEKyk4yH6QxP5_7UjlIGG'),
-                               host=os.getnv('Postgres: // usqtsycy: NQ_eAsuQfS3vEKyk4yH6QxP5_7UjlIGG@rajje.db.elephantsql.com: 5432 / usqtsycy'))
-cur = conn.cursor()
+class DataBase:
+    def __init__(self):
+        self.conn = psycopg2.connect(dbname='usqtsycy', user='usqtsycy',
+                               password='d_O5K4uRJGJEibpP1DyT5BOD2U2JI7x-',
+                               host='rajje.db.elephantsql.com')
+        self.cur = self.conn.cursor()
+
+    def record_creation(self, mail):  # создание нового пользователя в БД
+        self.cur.execute('''INSERT INTO users (mail, status) VALUES (%s, false)''', (mail,))
+        self.conn.commit()
+
+    def code_assignment(self, mail, code):  # присвоение кода безопасности к почте пользователя
+        self.cur.execute('''UPDATE users SET confirmation_code = %s WHERE users.mail=%s''', (code, mail,))
+        self.conn.commit()
+
+
+db = DataBase()
 
 
 @bot.message_handler(commands=['start','help'])
 def command_handler(message: Message):
     bot.reply_to(message, 'Poka chto nichego netu =(')
+
+
+@bot.message_handler(commands=['reg'])
+def send_code_1(message: Message):
+    bot.send_message(message.chat.id, 'Введите, пожалуйста, свою электронну почту dvfu')
+
+
+@bot.message_handler(func=lambda message: '@gmail.com' in message.text)
+def got_email(message: Message):
+    db.record_creation(message.text.strip())
+    SendMail('dvfu.schedule@gmail.com', 'Azsuna_power99', message.text.strip())
+    bot.send_message(message.chat.id, 'На вашу почту был выслан код подтверждения. Введите его:')
+
+
+@bot.message_handler(func=lambda message: message.text.isnumeric() and 1000 <= int(message.text) <= 9999)
+def got_code(self, message: Message):
+    self.cur.execute('''SELECT * FROM users WHERE users.mail = %s ''', (stroka,))
+    records = self.cur.fetchall()
+    bot.send_message(message.chat.id, 'Код принят, вы зарегестрированы!')
+
+
+'''
+host_mail - адрес на основе которого создастся SMTP сервер,
+            также с этого же адреса и будет отправлено сообщение
+host_password - пароль к host аккаунту
+receiver - адрес получателя
+content - содержимое сообщения
+'''
+
+
+def SendMail(host_mail, host_password, receiver):
+    message = randint(1000,9999)
+    message = str(message)
+    db.code_assignment(receiver, message)
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(host_mail, host_password)
+    server.sendmail(host_mail, receiver, message)
+    server.quit()
+
+
+'''
+@bot.message_handler(content_types=['text'])      #  реагирует только на текст
+def echo_digits(message: Message):                #
+    if "Привет" or "Hello" in message.text:      # если в тексте найдено слово, выводит ответ
+        bot.reply_to(message, 'Hello')            #
+        return                                    #
+    bot.reply_to(message, str(random.random()))# рандомное число от 0 до 1
+'''
 
 
 @bot.message_handler(commands=['weather'])
@@ -52,63 +116,6 @@ def weather_1(message: Message):
     bot.send_message(message.chat.id, 'Сейчас во Владивостоке: ' + str(desc) + clearSky +'\n' +
                      'температура: ' + str(temperature) + ' С' + '\n' + 'влажность: '
                      + str(hum) + ' % ' + rain + '\n' + 'скорость ветра: ' + str(wind) + 'м\с.')
-
-
-@bot.message_handler(commands=['reg'])
-def send_code_1(message: Message):
-    bot.send_message(message.chat.id, 'Введите, пожалуйста, свою электронну почту dvfu')
-
-
-@bot.message_handler(func=lambda message: '@gmail.com' in message.text)
-def got_email(message):
-    record_creation(message.text.strip())
-    SendMail('dvfu.schedule@gmail.com', 'Azsuna_power99', message.text.strip())
-    bot.send_message(message.chat.id, 'На вашу почту был выслан код подтверждения. Введите его:')
-
-
-@bot.message_handler(func=lambda message: message.text.isnumeric() and 1000 <= int(message.text) <= 9999)
-def got_code(message):
-    bot.send_message(message.chat.id, 'Got code')
-
-
-'''
-host_mail - адрес на основе которого создастся SMTP сервер,
-            также с этого же адреса и будет отправлено сообщение
-host_password - пароль к host аккаунту
-receiver - адрес получателя
-content - содержимое сообщения
-'''
-
-
-def SendMail(host_mail, host_password, receiver):
-    message = randint(1000,9999)
-    code_assignment(receiver, message)
-    message = message.as_string()
-    server = smtplib.SMTP('smtp.gmail.com', 587)
-    server.starttls()
-    server.login(host_mail, host_password)
-    server.sendmail(host_mail, receiver, message)
-    server.quit()
-
-
-def record_creation(mail):    # создание нового пользователя в БД
-    cur.execute('''INSERT INTO users (mail, status) VALUES (mail = %s, 0)''', (mail,))
-    conn.commit()
-
-
-def code_assignment(mail, code):    # присвоение кода безопасности к почте пользователя
-    cur.execute('''SELECT * FROM users WHERE  users.mail = %s
-    INSERT INTO users (confirmation_code) VALUES (code = %s)''', (mail, code,))
-    cur.fetchall()
-
-'''
-@bot.message_handler(content_types=['text'])      #  реагирует только на текст
-def echo_digits(message: Message):                #
-    if "Привет" or "Hello" in message.text:      # если в тексте найдено слово, выводит ответ
-        bot.reply_to(message, 'Hello')            #
-        return                                    #
-    bot.reply_to(message, str(random.random()))# рандомное число от 0 до 1
-'''
 
 
 print('Bot has started')
