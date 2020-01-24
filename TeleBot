@@ -10,7 +10,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import psycopg2
 
-stroka=''
+stroka = ' '
 
 token = "990483237:AAHV_NWo_rl3dhuM0HgXpzLDQQZ-7p_dZm8"
 bot = telebot.TeleBot(token)
@@ -36,16 +36,35 @@ class DataBase:
                                host='rajje.db.elephantsql.com')
         self.cur = self.conn.cursor()
 
-    def record_creation(self, mail):  # создание нового пользователя в БД
-        self.cur.execute('''INSERT INTO users (mail, status) VALUES (%s, false)''', (mail,))
+    def record_creation(self, mail, username):  # создание нового пользователя в БД
+        self.cur.execute('''INSERT INTO users (mail, status, username ) VALUES (%s, false, %s)''', (mail, username))
         self.conn.commit()
 
     def code_assignment(self, mail, code):  # присвоение кода безопасности к почте пользователя
         self.cur.execute('''UPDATE users SET confirmation_code = %s WHERE users.mail=%s''', (code, mail,))
         self.conn.commit()
 
+    def code_check(self, username, code):   # Проверка кода безопасности
+        self.cur.execute('''SELECT * FROM users WHERE users.username = %s''', (username,))
+        data = self.cur.fetchall()[0][5]
+        if int(code) == int(data):
+            self.cur.execute('''UPDATE users SET status = TRUE WHERE users.username = %s''', (username,))
+            self.conn.commit()
+            return 1
+
 
 db = DataBase()
+
+
+def SendMail(host_mail, host_password, receiver):
+    message = randint(1000,9999)
+    message = str(message)
+    db.code_assignment(receiver, message)
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(host_mail, host_password)
+    server.sendmail(host_mail, receiver, message)
+    server.quit()
 
 
 @bot.message_handler(commands=['start','help'])
@@ -60,16 +79,17 @@ def send_code_1(message: Message):
 
 @bot.message_handler(func=lambda message: '@gmail.com' in message.text)
 def got_email(message: Message):
-    db.record_creation(message.text.strip())
+    db.record_creation(message.text.strip(), message.chat.username)
     SendMail('dvfu.schedule@gmail.com', 'Azsuna_power99', message.text.strip())
     bot.send_message(message.chat.id, 'На вашу почту был выслан код подтверждения. Введите его:')
 
 
 @bot.message_handler(func=lambda message: message.text.isnumeric() and 1000 <= int(message.text) <= 9999)
-def got_code(self, message: Message):
-    self.cur.execute('''SELECT * FROM users WHERE users.mail = %s ''', (stroka,))
-    records = self.cur.fetchall()
-    bot.send_message(message.chat.id, 'Код принят, вы зарегестрированы!')
+def got_code(message: Message):
+    if db.code_check(message.chat.username, message.text):
+        bot.send_message(message.chat.id, 'Код принят, вы зарегестрированы!')
+    else:
+        bot.send_message(message.chat.id, 'Вы ввели неверный код, попробуйте снова')
 
 
 '''
@@ -79,17 +99,6 @@ host_password - пароль к host аккаунту
 receiver - адрес получателя
 content - содержимое сообщения
 '''
-
-
-def SendMail(host_mail, host_password, receiver):
-    message = randint(1000,9999)
-    message = str(message)
-    db.code_assignment(receiver, message)
-    server = smtplib.SMTP('smtp.gmail.com', 587)
-    server.starttls()
-    server.login(host_mail, host_password)
-    server.sendmail(host_mail, receiver, message)
-    server.quit()
 
 
 '''
