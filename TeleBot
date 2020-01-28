@@ -52,6 +52,12 @@ class DataBase:
             self.conn.commit()
             return 1
 
+    def check_reg(self, username):  # Проверка на регистрацию. Если поле "status" имеет значение TRUE, значит пользователь уже зарегестрирован
+        self.cur.execute('''SELECT * FROM users WHERE users.username = %s''', (username,))
+        data = self.cur.fetchall()[0][7]
+        if data == 1:
+            return 0
+
 
 db = DataBase()
 
@@ -77,11 +83,14 @@ def send_code_1(message: Message):
     bot.send_message(message.chat.id, 'Введите, пожалуйста, свою электронну почту dvfu')
 
 
-@bot.message_handler(func=lambda message: '@gmail.com' in message.text)
+@bot.message_handler(func=lambda message: '@gmail.com' in message.text or '@students.dvfu.ru' in message.text)
 def got_email(message: Message):
-    db.record_creation(message.text.strip(), message.chat.username)
-    SendMail('dvfu.schedule@gmail.com', 'Azsuna_power99', message.text.strip())
-    bot.send_message(message.chat.id, 'На вашу почту был выслан код подтверждения. Введите его:')
+    if db.check_reg(message.chat.username):
+        db.record_creation(message.text.strip(), message.chat.username)
+        SendMail('dvfu.schedule@gmail.com', 'Azsuna_power99', message.text.strip())
+        bot.send_message(message.chat.id, 'На вашу почту был выслан код подтверждения. Введите его:')
+    else:
+        bot.send_message(message.chat.id, 'Извините, вы уже активировали учетную запись')
 
 
 @bot.message_handler(func=lambda message: message.text.isnumeric() and 1000 <= int(message.text) <= 9999)
